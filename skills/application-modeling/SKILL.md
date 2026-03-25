@@ -15,9 +15,8 @@ Use this skill for all Radius-related tasks: authoring application Bicep, config
 
 1. **Read the platform constitution.** Check for `Platform-Engineering-Constitution.md` in the repository root. Note approved cloud providers, compute platforms, and IaC tooling.
 2. **Check current Radius state.** Run `rad workspace show`, `rad environment list`, `rad recipe list`, and `rad resource-type list`.
-3. **Look up resource types and recipes** in [radius-resource-types](https://github.com/kachawla/radius-resource-types).
-4. **Author or update** the application Bicep, resource types, and/or environment configuration as needed.
-5. **Validate** against the constitution and test with `rad run`.
+3. **Author or update** the application Bicep, resource types, and/or environment configuration as needed.
+4. **Validate** against the constitution and test with `rad run`.
 
 ---
 
@@ -246,6 +245,21 @@ rad environment switch myenv
 
 ### Register Resource Types
 
+**Always fetch resource type YAML files directly from the GitHub repo** rather than generating them. Use the raw file URLs:
+
+```
+https://raw.githubusercontent.com/kachawla/radius-resource-types/main/<Namespace>/<typeName>/<typeName>.yaml
+```
+
+Examples:
+- `https://raw.githubusercontent.com/kachawla/radius-resource-types/main/Data/postgreSqlDatabases/postgreSqlDatabases.yaml`
+- `https://raw.githubusercontent.com/kachawla/radius-resource-types/main/Compute/containers/containers.yaml`
+- `https://raw.githubusercontent.com/kachawla/radius-resource-types/main/Security/secrets/secrets.yaml`
+- `https://raw.githubusercontent.com/kachawla/radius-resource-types/main/AIAgent/agent.yaml`
+- `https://raw.githubusercontent.com/kachawla/radius-resource-types/main/Data/blobStorage/blobstorage.yaml`
+
+Fetch the YAML, save it locally, then register:
+
 ```bash
 # Download YAML from radius-resource-types, then register
 rad resource-type create Radius.Data/postgreSqlDatabases --from-file postgreSqlDatabases.yaml
@@ -347,7 +361,28 @@ rad workspace show
 
 ## Part 3: Custom Resource Types & Recipes
 
-### Resource Type YAML Schema
+> **Important:** Before creating new resource types or recipes, always check [radius-resource-types](https://github.com/kachawla/radius-resource-types) first. Fetch existing YAML manifests and recipe files directly from the repo using raw URLs (see Part 2). Only author new ones from scratch if the resource type does not exist in the repo.
+
+### Fetching Existing Recipes
+
+Recipe files live alongside the resource type YAML in the repo. Fetch them using raw URLs:
+
+```
+https://raw.githubusercontent.com/kachawla/radius-resource-types/main/<Namespace>/<typeName>/recipes/<platform>/<iac>/<recipe-file>
+```
+
+Examples:
+- `https://raw.githubusercontent.com/kachawla/radius-resource-types/main/Data/postgreSqlDatabases/recipes/azure/bicep/postgresql.bicep`
+- `https://raw.githubusercontent.com/kachawla/radius-resource-types/main/Compute/containers/recipes/kubernetes/bicep/kubernetes-containers.bicep`
+- `https://raw.githubusercontent.com/kachawla/radius-resource-types/main/AIAgent/recipes/azure/bicep/agent.bicep`
+- `https://raw.githubusercontent.com/kachawla/radius-resource-types/main/Data/blobStorage/recipes/azure/bicep/blobstorage.bicep`
+
+To browse available recipes for a type, fetch the directory listing:
+```
+https://github.com/kachawla/radius-resource-types/tree/main/<Namespace>/<typeName>/recipes
+```
+
+### Resource Type YAML Schema (for new types only)
 
 ```yaml
 namespace: Radius.Data
@@ -530,7 +565,7 @@ rad run app.bicep
 
 - **Always check the platform constitution** before suggesting resource types, recipes, or cloud-specific patterns.
 - **Use portable resource types** (`Radius.*`) instead of cloud-specific resources unless explicitly needed.
-- **Look up resource types and recipes in [radius-resource-types](https://github.com/kachawla/radius-resource-types)** before authoring new ones from scratch.
+- **Look up resource types and recipes in [radius-resource-types](https://github.com/kachawla/radius-resource-types)** before authoring new ones from scratch. **Fetch the actual YAML and recipe files from the repo** using raw GitHub URLs (`https://raw.githubusercontent.com/kachawla/radius-resource-types/main/...`) rather than generating them dynamically. Only generate from scratch if the type or recipe does not exist in the repo.
 - **Never hardcode infrastructure details** in application definitions — let recipes handle it.
 - **Always include `environment`** — required for all Radius resources.
 - **Handle both connection env var formats** (`_PROPERTIES` JSON and individual vars) for portability.
