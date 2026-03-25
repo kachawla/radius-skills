@@ -15,8 +15,9 @@ Use this skill for all Radius-related tasks: authoring application Bicep, config
 
 1. **Read the platform constitution.** Check for `Platform-Engineering-Constitution.md` in the repository root. Note approved cloud providers, compute platforms, and IaC tooling.
 2. **Check current Radius state.** Run `rad workspace show`, `rad environment list`, `rad recipe list`, and `rad resource-type list`.
-3. **Author or update** the application Bicep, resource types, and/or environment configuration as needed.
-4. **Validate** against the constitution and test with `rad run`.
+3. **Look up resource types and recipes** in [radius-resource-types](https://github.com/kachawla/radius-resource-types).
+4. **Author or update** the application Bicep, resource types, and/or environment configuration as needed.
+5. **Validate** against the constitution and test with `rad run`.
 
 ---
 
@@ -39,7 +40,7 @@ Before writing `app.bicep`, configure `bicepconfig.json`:
 }
 ```
 
-**If using `Radius.*` resource types** (from `resource-types-contrib`), add custom extensions:
+**If using `Radius.*` resource types** (from [radius-resource-types](https://github.com/kachawla/radius-resource-types)), add custom extensions:
 
 ```json
 {
@@ -78,9 +79,9 @@ Built into Radius. `Applications.Core/containers` is handled directly by the Rad
 | `Applications.Datastores/redisCaches` | Redis (recipe-based) |
 | `Applications.Datastores/sqlDatabases` | SQL databases (recipe-based) |
 
-#### `Radius.*` (from resource-types-contrib)
+#### `Radius.*` (from radius-resource-types)
 
-Community/extensible types. **ALL are recipe-based**, including `Radius.Compute/containers`.
+Community/extensible types from [radius-resource-types](https://github.com/kachawla/radius-resource-types). **ALL are recipe-based**, including `Radius.Compute/containers`.
 
 | Type | Description |
 |------|-------------|
@@ -246,7 +247,7 @@ rad environment switch myenv
 ### Register Resource Types
 
 ```bash
-# Download YAML from resource-types-contrib, then register
+# Download YAML from radius-resource-types, then register
 rad resource-type create Radius.Data/postgreSqlDatabases --from-file postgreSqlDatabases.yaml
 rad resource-type show Radius.Data/postgreSqlDatabases   # verify
 ```
@@ -522,13 +523,14 @@ rad run app.bicep
 | Recipe Authoring | [references/recipe-authoring.md](references/recipe-authoring.md) | Bicep/Terraform recipes, context object |
 | Environment Config | [references/environment-config.md](references/environment-config.md) | Workspaces, environments, namespaces |
 | Cloud Providers | [references/cloud-providers.md](references/cloud-providers.md) | Azure, AWS credentials for Radius |
-| Recipe Structure | [references/recipe-structure.md](references/recipe-structure.md) | Directory layout in resource-types-contrib |
-| Contribution Guide | [references/contribution-guide.md](references/contribution-guide.md) | Contributing to resource-types-contrib |
+| Recipe Structure | [references/recipe-structure.md](references/recipe-structure.md) | Directory layout in radius-resource-types |
+| Contribution Guide | [references/contribution-guide.md](references/contribution-guide.md) | Contributing to radius-resource-types |
 
 ## Guardrails
 
 - **Always check the platform constitution** before suggesting resource types, recipes, or cloud-specific patterns.
 - **Use portable resource types** (`Radius.*`) instead of cloud-specific resources unless explicitly needed.
+- **Look up resource types and recipes in [radius-resource-types](https://github.com/kachawla/radius-resource-types)** before authoring new ones from scratch.
 - **Never hardcode infrastructure details** in application definitions — let recipes handle it.
 - **Always include `environment`** — required for all Radius resources.
 - **Handle both connection env var formats** (`_PROPERTIES` JSON and individual vars) for portability.

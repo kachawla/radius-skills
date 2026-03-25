@@ -22,7 +22,7 @@ These are built into Radius and available without registration.
 | `Applications.Datastores/sqlDatabases` | `2023-10-01-preview` | SQL databases |
 | `Applications.Datastores/mongoDatabases` | `2023-10-01-preview` | MongoDB databases |
 
-### Radius.Compute (resource-types-contrib)
+### Radius.Compute (radius-resource-types)
 
 Must be registered. **All are recipe-based.**
 
@@ -32,7 +32,7 @@ Must be registered. **All are recipe-based.**
 | `Radius.Compute/persistentVolumes` | `2025-08-01-preview` | Persistent volumes |
 | `Radius.Compute/routes` | `2025-08-01-preview` | HTTP routing (requires Gateway API) |
 
-### Radius.Data (resource-types-contrib)
+### Radius.Data (radius-resource-types)
 
 Must be registered. All are recipe-based.
 
@@ -40,13 +40,28 @@ Must be registered. All are recipe-based.
 |------|------------|-------------|
 | `Radius.Data/postgreSqlDatabases` | `2025-08-01-preview` | PostgreSQL databases |
 | `Radius.Data/mySqlDatabases` | `2025-08-01-preview` | MySQL databases |
-| `Radius.Data/redisCaches` | `2025-08-01-preview` | Redis caches |
 
-### Radius.Security (resource-types-contrib)
+### Radius.Security (radius-resource-types)
 
 | Type | API Version | Description |
 |------|------------|-------------|
 | `Radius.Security/secrets` | `2025-08-01-preview` | Secret stores |
+
+### Radius.Storage (radius-resource-types)
+
+Must be registered. All are recipe-based.
+
+| Type | API Version | Description |
+|------|------------|-------------|
+| `Radius.Storage/blobStorages` | `2025-08-01-preview` | Blob storage |
+
+### Radius.AI (radius-resource-types)
+
+Must be registered. All are recipe-based.
+
+| Type | API Version | Description |
+|------|------------|-------------|
+| `Radius.AI/agents` | `2025-08-01-preview` | LLM-powered AI agents (Azure OpenAI + AI Search + observability) |
 
 ## Common Properties
 
@@ -63,33 +78,37 @@ All resource types share these properties:
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `size` | `'S' \| 'M' \| 'L'` | Depends on recipe | Database size |
+| `size` | `'S' \| 'M' \| 'L'` | No | Database instance size (defaults to `S`) |
+
+### Output Properties (readOnly, set by recipe)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `host` | string | Database server hostname |
+| `port` | string | Port number |
+| `database` | string | Database name |
+| `username` | string | Admin username |
+| `password` | string | Admin password |
+
+## Radius.Data/mySqlDatabases Schema
+
+### Input Properties
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `database` | string | No | Database name (defaults to `application-name`) |
+| `username` | string | No | Database username (defaults to `application-name-user`) |
+| `version` | string | No | MySQL server version in X.Y format (defaults to `8.4`) |
 
 ### Output Properties (readOnly, set by recipe)
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `host` | string | Database hostname |
-| `port` | string | Database port |
+| `port` | integer | Database port |
 | `database` | string | Database name |
-| `username` | string | Admin username |
-| `password` | string | Admin password |
-
-## Radius.Data/redisCaches Schema
-
-### Input Properties
-
-| Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `size` | `'S' \| 'M' \| 'L'` | Depends on recipe | Cache size |
-
-### Output Properties (readOnly, set by recipe)
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `host` | string | Redis hostname |
-| `port` | string | Redis port |
-| `password` | string | Redis password (if auth enabled) |
+| `username` | string | Database username |
+| `password` | string | Database password |
 
 ## Radius.Compute/containers Schema
 
@@ -109,6 +128,83 @@ Each container object:
 | `env` | map of strings | Environment variables |
 | `readinessProbe` | probe object | Readiness probe configuration |
 | `livenessProbe` | probe object | Liveness probe configuration |
+
+## Radius.Compute/persistentVolumes Schema
+
+### Input Properties
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `sizeInGib` | integer | Yes | Size in gibibytes of the persistent volume |
+| `allowedAccessModes` | string | No | Access mode restriction (defaults to `ReadWriteOnce`) |
+
+### Output Properties (readOnly, set by recipe)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `claimName` | string | Normalized PersistentVolumeClaim name created by the recipe |
+
+## Radius.Compute/routes Schema
+
+### Input Properties
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `kind` | string | Yes | Route kind: `HTTPRoute`, `TCPRoute`, `TLSRoute`, or `UDPRoute` |
+| `hostnames` | array of strings | No | Hostnames for the route |
+| `rules` | array of rule objects | Yes | Routing rules with matches and destination containers |
+| `gatewayName` | string | Yes | Name of the Gateway resource the routes attach to |
+| `gatewayNamespace` | string | Yes | Namespace where the Gateway exists |
+
+### Output Properties (readOnly, set by recipe)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `listener.hostname` | string | Hostname of the listener |
+| `listener.port` | integer | Port of the listener |
+| `listener.protocol` | string | Protocol of the listener |
+
+## Radius.Security/secrets Schema
+
+### Input Properties
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `kind` | string | No | Kind of secret content (defaults to `generic`). Also supports `basicAuthentication`, `awsIRSA`, `azureWorkloadIdentity` for platform engineer use cases |
+| `data` | map of secret objects | Yes | Map of secret names to objects with `value` (required, sensitive) and `encoding` (optional, `string` or `base64`) |
+
+### Output Properties (readOnly, set by recipe)
+
+No output properties — secrets are consumed directly.
+
+## Radius.Storage/blobStorages Schema
+
+### Input Properties
+
+No input properties beyond `environment` and `application`.
+
+### Output Properties (readOnly, set by recipe)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `endpoint` | string | Storage account blob endpoint URL |
+| `key` | string | Storage account access key |
+
+## Radius.AI/agents Schema
+
+### Input Properties
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `prompt` | string | Yes | System prompt that defines the agent's behavior and personality |
+| `model` | string | Yes | Azure OpenAI model deployment name (e.g., `gpt-4.1-mini`) |
+| `enableObservability` | boolean | No | Enable Application Insights telemetry (defaults to `false`) |
+
+### Output Properties (readOnly, set by recipe)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `agentEndpoint` | string | HTTP endpoint of the deployed agent runtime service |
 
 ## Checking Registered Types
 

@@ -1,6 +1,6 @@
 # Recipe Structure
 
-Recipes in [resource-types-contrib](https://github.com/radius-project/resource-types-contrib) follow a consistent directory layout:
+Recipes in [radius-resource-types](https://github.com/kachawla/radius-resource-types) follow a consistent directory layout:
 
 ```
 <resourceType>/
