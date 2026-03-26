@@ -106,9 +106,15 @@ Map application needs to Radius resource types and cloud services:
 | Need | Radius Resource Type | Azure Implementation | AWS Implementation |
 |------|---------------------|---------------------|--------------------|
 | SQL Database | `Radius.Data/postgreSqlDatabases` | Azure Database for PostgreSQL | Amazon RDS for PostgreSQL |
-| Cache | `Radius.Data/redisCaches` | Azure Cache for Redis | Amazon ElastiCache |
+| MySQL Database | `Radius.Data/mySqlDatabases` | Azure Database for MySQL | Amazon RDS for MySQL |
+| Object Storage | `Radius.Storage/blobStorages` | Azure Storage Account Blob service | Amazon S3-compatible recipe or custom implementation |
+| Secrets | `Radius.Security/secrets` | Key Vault-backed or Kubernetes Secret recipe | Secrets Manager-backed or Kubernetes Secret recipe |
 | Containers | `Radius.Compute/containers` | AKS pods | EKS pods |
+| Persistent Volume | `Radius.Compute/persistentVolumes` | Azure Disk or Azure Files-backed PVC | EBS or EFS-backed PVC |
 | Ingress | `Radius.Compute/routes` | Azure App Gateway | AWS ALB |
+| AI Agent Runtime | `Radius.AI/agents` | Azure OpenAI + AI Search + Kubernetes runtime | Custom recipe required |
+
+Keep `Radius.Data/redisCaches` available as a custom or legacy cache pattern when the environment has a matching resource type and recipe registered.
 
 ## IaC Scaffolding
 

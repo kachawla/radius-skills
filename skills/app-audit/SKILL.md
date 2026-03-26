@@ -92,13 +92,15 @@ If the app uses Radius, validate Radius configuration.
 | Check | What to look for | Severity |
 |-------|-----------------|----------|
 | `bicepconfig.json` exists | Required for Radius Bicep extensions | 🔴 Critical |
-| Portable resource types used | `Radius.*` or `Applications.Datastores/*` instead of cloud-specific | 🟡 Warning |
+| Portable resource types used | `Radius.Compute/*`, `Radius.Data/*`, `Radius.Storage/*`, `Radius.Security/*`, `Radius.AI/*`, or `Applications.Datastores/*` instead of cloud-specific | 🟡 Warning |
 | `environment` parameter present | All Radius resources include `environment` | 🔴 Critical |
 | Recipe properties set | Properties expected by recipes are declared (e.g., `size`) | 🟡 Warning |
 | Connection env var handling | App code handles both `_PROPERTIES` JSON and individual vars | 🟡 Warning |
 | Health probes configured | Container resources include readiness/liveness probes | 🟡 Warning |
 | No local file paths in recipes | Recipe template paths use OCI registry URLs | 🔴 Critical |
 | No `localhost` in image/recipe refs | Should use `host.docker.internal` or cloud registry | 🟡 Warning |
+
+Treat `Radius.Data/redisCaches` as a valid custom pattern when the repo or environment explicitly includes that resource type, even though it is not part of the current checked-in inventory of `radius-resource-types`.
 
 ## Audit Report Format
 

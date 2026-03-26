@@ -23,4 +23,4 @@ This project uses [Radius](https://radapp.io/) to bridge developers and platform
 - **Developers**: Use portable resource types (e.g., `Radius.Data/postgreSqlDatabases`) in application Bicep files. Do not hardcode cloud-specific infrastructure — let Recipes handle the implementation.
 - **Platform Engineers**: Register resource types and recipes in Radius environments that align with the platform constitution. Use `rad recipe list` and `rad resource-type list` to verify what's available.
 - **Use the Radius MCP tools** (when available) to introspect the live environment: check registered recipes, resource types, deployed applications, and resource graphs before making changes.
-- When authoring new resource types or recipes, follow the conventions in [resource-types-contrib](https://github.com/radius-project/resource-types-contrib).
+- When authoring new resource types or recipes, follow the conventions in [radius-resource-types](https://github.com/kachawla/radius-resource-types).

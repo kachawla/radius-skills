@@ -2,7 +2,7 @@
 
 ## Overview
 
-[radius-resource-types](https://github.com/kachawla/radius-resource-types) is the repository for Radius resource types and recipes. It follows consistent conventions for directory structure, naming, and testing.
+[radius-resource-types](https://github.com/kachawla/radius-resource-types) is the repository for Radius resource types and recipes used by this skill set. It follows consistent conventions for directory structure, naming, and testing.
 
 ## Contribution Workflow
 

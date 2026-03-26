@@ -44,7 +44,7 @@ Design optimal cloud architecture based on your platform engineering requirement
 
 #### radius-app
 
-Author Radius application definitions using Bicep. Guides developers through defining containers, connections, and portable resource types with correct schemas and patterns.
+Author Radius application definitions using Bicep. Supports `Create an application definition` flows by discovering shared resources, scaffolding `app.bicep`, prompting for missing OCI and AI values, and wiring portable resource types correctly.
 
 #### radius-environment
 
@@ -52,7 +52,7 @@ Configure Radius environments with recipes and resource types. Helps platform en
 
 #### radius-new-type
 
-Create and install new Radius resource types and recipes when a needed type doesn't exist in [resource-types-contrib](https://github.com/radius-project/resource-types-contrib). Walks through defining the YAML schema, writing recipes, registering the type, and contributing back.
+Create and install new Radius resource types and recipes when a needed type doesn't exist in [radius-resource-types](https://github.com/kachawla/radius-resource-types). Walks through defining the YAML schema, writing recipes, registering the type, and contributing changes there.
 
 ## MCP Server
 

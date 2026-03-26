@@ -83,6 +83,68 @@ resource frontend 'Radius.Compute/containers@2025-08-01-preview' = {
 }
 ```
 
+## Additional Repo-Backed Resource Types
+
+Examples below reflect the current `radius-resource-types` inventory plus the retained Redis pattern used elsewhere in this skill.
+
+```bicep
+extension radiusStorage
+extension radiusSecurity
+extension radiusAi
+
+resource mysql 'Radius.Data/mySqlDatabases@2025-08-01-preview' = {
+  name: 'mysql'
+  properties: {
+    environment: environment
+    application: application
+    version: '8.4'
+  }
+}
+
+resource files 'Radius.Storage/blobStorages@2025-08-01-preview' = {
+  name: 'files'
+  properties: {
+    environment: environment
+    application: application
+  }
+}
+
+resource appSecrets 'Radius.Security/secrets@2025-08-01-preview' = {
+  name: 'app-secrets'
+  properties: {
+    environment: environment
+    application: application
+    data: {
+      apiKey: {
+        value: apiKey
+      }
+    }
+  }
+}
+
+resource dataVolume 'Radius.Compute/persistentVolumes@2025-08-01-preview' = {
+  name: 'data'
+  properties: {
+    environment: environment
+    application: application
+    sizeInGib: 1
+  }
+}
+
+resource agent 'Radius.AI/agents@2025-08-01-preview' = {
+  name: 'assistant'
+  properties: {
+    environment: environment
+    application: application
+    prompt: 'You are a helpful assistant.'
+    model: 'gpt-4.1-mini'
+    enableObservability: true
+  }
+}
+```
+
+`Radius.Data/redisCaches` remains a supported custom example in these docs even though it is not currently part of the repo-backed inventory.
+
 ## Parameterized Image References
 
 For portability across environments:

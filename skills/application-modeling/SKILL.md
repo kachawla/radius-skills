@@ -1,6 +1,6 @@
 ---
 name: application-modeling
-description: Model cloud-native applications with Radius using Bicep. Covers application authoring, environment/recipe setup, and custom resource type creation — everything needed to define, deploy, and extend Radius applications.
+description: Model cloud-native applications with Radius using Bicep. Use when asked to create an application definition, scaffold app.bicep, configure environments, or create custom resource types.
 license: MIT
 metadata:
   author: radius-skills
@@ -15,8 +15,54 @@ Use this skill for all Radius-related tasks: authoring application Bicep, config
 
 1. **Read the platform constitution.** Check for `Platform-Engineering-Constitution.md` in the repository root. Note approved cloud providers, compute platforms, and IaC tooling.
 2. **Check current Radius state.** Run `rad workspace show`, `rad environment list`, `rad recipe list`, and `rad resource-type list`.
-3. **Author or update** the application Bicep, resource types, and/or environment configuration as needed.
-4. **Validate** against the constitution and test with `rad run`.
+3. **If asked to create an application definition, inspect the workspace first.** Look for environment definitions, existing shared resources, container artifacts, and application code that implies required connections.
+4. **Prompt only for missing values.** Ask for OCI registry details, boolean choices without a safe default, and long free-text inputs such as AI prompts.
+5. **Author or update** the application Bicep, resource types, and/or environment configuration as needed.
+6. **Validate** against the constitution and test with `rad run`.
+
+## Interactive App Definition Flow
+
+Use this flow when the user says things like `Create an application definition`, `Create app.bicep`, or `Scaffold a Radius application`.
+
+### Discovery Order
+
+1. **Inspect the environment definition first.** If the workspace contains an environment definition or Radius environment config that already provides shared resources such as PostgreSQL or blob storage, model those resources as `existing` in `app.bicep` rather than creating new ones.
+2. **Inspect the repository for container artifacts.** Look for `Dockerfile`, `Containerfile`, OCI build configs, or application folders that clearly map to a container workload. If a container exists in the repository, add a `Radius.Compute/containers` resource.
+3. **Inspect the code for required connections.** Search for connection names, SDK usage, or environment variables that imply dependencies such as PostgreSQL, blob storage, or AI agent endpoints.
+4. **Inspect for AI-agent expectations.** If the code expects an agent endpoint or agent-style integration, add a `Radius.AI/agents` resource and connect the container to it.
+
+### Required Questions
+
+Ask the user only when the value cannot be inferred safely:
+
+1. **OCI registry host** for the container image.
+2. **Enable observability?** Ask explicitly for `Radius.AI/agents.enableObservability` because it is boolean and should not be guessed.
+3. **Prompt value** for the AI agent.
+
+### Authoring Rules For This Flow
+
+- **Always create `app.bicep`** when it does not already exist.
+- **Always ensure `bicepconfig.json` includes the needed Radius extensions** for every resource type used in the generated app.
+- **Use `existing` resources** for shared infrastructure already defined by the environment, especially PostgreSQL and blob storage when those are pre-provisioned.
+- **Add a container resource** when the repository clearly contains a deployable application container.
+- **Prompt for the OCI registry** instead of hardcoding one.
+- **Prompt for AI observability** instead of assuming `true` or `false`.
+- **If the AI prompt is long or multi-line, do not inline it in the resource.** Model it as `param agentPrompt string` and set `prompt: agentPrompt`.
+- **If the AI prompt is short and single-line, it may be inlined** unless the user prefers parameterization.
+- **Prefer minimal app scaffolds** that connect to existing shared resources rather than duplicating them.
+
+### Expected Output Shape
+
+The generated `app.bicep` should usually include:
+
+- An application resource.
+- Existing shared resources such as PostgreSQL and blob storage, when discovered from the environment definition.
+- A new `Radius.Compute/containers` resource for the application container.
+- A new `Radius.AI/agents` resource when the code expects an AI agent.
+- Connections from the container to PostgreSQL, blob storage, and the AI agent.
+- Parameters for registry details and long free-text values.
+
+See [references/app-definition-flow.md](references/app-definition-flow.md) for the canonical example and decision rules.
 
 ---
 
@@ -39,15 +85,18 @@ Before writing `app.bicep`, configure `bicepconfig.json`:
 }
 ```
 
-**If using `Radius.*` resource types** (from [radius-resource-types](https://github.com/kachawla/radius-resource-types)), add custom extensions:
+**If using `Radius.*` resource types** (from `radius-resource-types`), add custom extensions:
 
 ```json
 {
   "extensions": {
     "radius": "br:biceptypes.azurecr.io/radius:latest",
     "aws": "br:biceptypes.azurecr.io/aws:latest",
+    "radiusCompute": "radius-compute.tgz",
     "radiusData": "radius-data.tgz",
-    "radiusCompute": "radius-compute.tgz"
+    "radiusStorage": "radius-storage.tgz",
+    "radiusSecurity": "radius-security.tgz",
+    "radiusAi": "radius-ai.tgz"
   },
   "experimentalFeaturesEnabled": {
     "extensibility": true,
@@ -80,14 +129,20 @@ Built into Radius. `Applications.Core/containers` is handled directly by the Rad
 
 #### `Radius.*` (from radius-resource-types)
 
-Community/extensible types from [radius-resource-types](https://github.com/kachawla/radius-resource-types). **ALL are recipe-based**, including `Radius.Compute/containers`.
+Community/extensible types. **ALL are recipe-based**, including `Radius.Compute/containers`.
 
 | Type | Description |
 |------|-------------|
 | `Radius.Compute/containers` | Container workloads (**recipe-based**) |
+| `Radius.Compute/persistentVolumes` | Persistent storage volumes |
 | `Radius.Compute/routes` | HTTP routing (requires Gateway API controller) |
+| `Radius.Data/mySqlDatabases` | MySQL databases |
 | `Radius.Data/postgreSqlDatabases` | PostgreSQL databases |
-| `Radius.Data/redisCaches` | Redis caches |
+| `Radius.Storage/blobStorages` | Blob/object storage |
+| `Radius.Security/secrets` | Secret stores |
+| `Radius.AI/agents` | LLM-powered agent runtimes |
+
+`Radius.Data/redisCaches` is still kept in these skills as a supported custom pattern and example, even though it is not currently listed in the checked-in folders of `radius-resource-types`.
 
 > **Critical difference:** `Applications.Core/containers` is directly managed by Radius. `Radius.Compute/containers` is recipe-based — it needs a registered recipe to deploy.
 
@@ -245,32 +300,29 @@ rad environment switch myenv
 
 ### Register Resource Types
 
-**Always fetch resource type YAML files directly from the GitHub repo** rather than generating them. Use the raw file URLs:
-
-```
-https://raw.githubusercontent.com/kachawla/radius-resource-types/main/<Namespace>/<typeName>/<typeName>.yaml
-```
-
-Examples:
-- `https://raw.githubusercontent.com/kachawla/radius-resource-types/main/Data/postgreSqlDatabases/postgreSqlDatabases.yaml`
-- `https://raw.githubusercontent.com/kachawla/radius-resource-types/main/Compute/containers/containers.yaml`
-- `https://raw.githubusercontent.com/kachawla/radius-resource-types/main/Security/secrets/secrets.yaml`
-- `https://raw.githubusercontent.com/kachawla/radius-resource-types/main/AIAgent/agent.yaml`
-- `https://raw.githubusercontent.com/kachawla/radius-resource-types/main/Data/blobStorage/blobstorage.yaml`
-
-Fetch the YAML, save it locally, then register:
-
 ```bash
 # Download YAML from radius-resource-types, then register
 rad resource-type create Radius.Data/postgreSqlDatabases --from-file postgreSqlDatabases.yaml
 rad resource-type show Radius.Data/postgreSqlDatabases   # verify
+
+# Repeat for other repo-backed types such as:
+# Radius.Data/mySqlDatabases
+# Radius.Storage/blobStorages
+# Radius.Security/secrets
+# Radius.Compute/persistentVolumes
+# Radius.Compute/routes
+# Radius.AI/agents
 ```
 
 ### Generate Bicep Extensions
 
 ```bash
 rad bicep publish-extension --from-file postgreSqlDatabases.yaml --target radius-data.tgz
-# Then add to bicepconfig.json: "radiusData": "radius-data.tgz"
+# Then add the matching extension key in bicepconfig.json, for example:
+#   "radiusData": "radius-data.tgz"
+#   "radiusStorage": "radius-storage.tgz"
+#   "radiusSecurity": "radius-security.tgz"
+#   "radiusAi": "radius-ai.tgz"
 ```
 
 Combine multiple types into one YAML (with `---` separator) to generate a single extension.
@@ -361,28 +413,7 @@ rad workspace show
 
 ## Part 3: Custom Resource Types & Recipes
 
-> **Important:** Before creating new resource types or recipes, always check [radius-resource-types](https://github.com/kachawla/radius-resource-types) first. Fetch existing YAML manifests and recipe files directly from the repo using raw URLs (see Part 2). Only author new ones from scratch if the resource type does not exist in the repo.
-
-### Fetching Existing Recipes
-
-Recipe files live alongside the resource type YAML in the repo. Fetch them using raw URLs:
-
-```
-https://raw.githubusercontent.com/kachawla/radius-resource-types/main/<Namespace>/<typeName>/recipes/<platform>/<iac>/<recipe-file>
-```
-
-Examples:
-- `https://raw.githubusercontent.com/kachawla/radius-resource-types/main/Data/postgreSqlDatabases/recipes/azure/bicep/postgresql.bicep`
-- `https://raw.githubusercontent.com/kachawla/radius-resource-types/main/Compute/containers/recipes/kubernetes/bicep/kubernetes-containers.bicep`
-- `https://raw.githubusercontent.com/kachawla/radius-resource-types/main/AIAgent/recipes/azure/bicep/agent.bicep`
-- `https://raw.githubusercontent.com/kachawla/radius-resource-types/main/Data/blobStorage/recipes/azure/bicep/blobstorage.bicep`
-
-To browse available recipes for a type, fetch the directory listing:
-```
-https://github.com/kachawla/radius-resource-types/tree/main/<Namespace>/<typeName>/recipes
-```
-
-### Resource Type YAML Schema (for new types only)
+### Resource Type YAML Schema
 
 ```yaml
 namespace: Radius.Data
@@ -551,6 +582,7 @@ rad run app.bicep
 | Topic | Reference | Use for |
 |-------|-----------|---------|
 | Bicep Patterns | [references/bicep-patterns.md](references/bicep-patterns.md) | Multi-container apps, gateways, parameterization |
+| App Definition Flow | [references/app-definition-flow.md](references/app-definition-flow.md) | Scaffolding `app.bicep` from environment and repo discovery |
 | Connection Conventions | [references/connection-conventions.md](references/connection-conventions.md) | Env var formats, JSON parsing, portable code |
 | Resource Type Catalog | [references/resource-type-catalog.md](references/resource-type-catalog.md) | Available types, schemas, properties |
 | Local Development | [references/local-development.md](references/local-development.md) | kind, local registry, containerd, Dockerfiles |
@@ -565,12 +597,16 @@ rad run app.bicep
 
 - **Always check the platform constitution** before suggesting resource types, recipes, or cloud-specific patterns.
 - **Use portable resource types** (`Radius.*`) instead of cloud-specific resources unless explicitly needed.
-- **Look up resource types and recipes in [radius-resource-types](https://github.com/kachawla/radius-resource-types)** before authoring new ones from scratch. **Fetch the actual YAML and recipe files from the repo** using raw GitHub URLs (`https://raw.githubusercontent.com/kachawla/radius-resource-types/main/...`) rather than generating them dynamically. Only generate from scratch if the type or recipe does not exist in the repo.
 - **Never hardcode infrastructure details** in application definitions — let recipes handle it.
 - **Always include `environment`** — required for all Radius resources.
 - **Handle both connection env var formats** (`_PROPERTIES` JSON and individual vars) for portability.
 - **Set all recipe-expected properties** in Bicep (e.g., `size`), or use safe defaults in recipes.
 - **Always configure `bicepconfig.json`** — the Radius Bicep extension won't resolve without it.
+- **When scaffolding `app.bicep`, inspect before asking.** Infer shared resources and container workloads from the workspace whenever possible.
+- **When shared resources already exist in the environment, declare them with `existing`** instead of provisioning duplicates.
+- **Always ask for the OCI registry host** when it cannot be inferred from the repository.
+- **Always ask before setting boolean AI options** such as `enableObservability` when there is no clear project default.
+- **Move long or multi-line prompt text into a parameter** instead of embedding it directly in the AI agent resource.
 - **Never register recipes from local file paths** — publish to an OCI registry first.
 - **Use `host.docker.internal`** instead of `localhost` for in-cluster access to host services.
 - **Use `--plain-http`** when working with insecure (HTTP) registries.
