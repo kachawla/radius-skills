@@ -17,6 +17,8 @@ Use this workflow when the user asks Copilot to create an application definition
 4. Create `app.bicep` with the correct Radius extensions and resource declarations.
 5. Ask the user only for values that cannot be inferred safely.
 
+Treat `env.bicep`, `environment.bicep`, `shared-resources.bicep`, and similar Bicep files in the workspace as authoritative inputs for environment names and shared resource declarations.
+
 ## Question Order
 
 Ask these in order when they are not already discoverable:
@@ -31,8 +33,9 @@ If the prompt value is long or multi-line, model it as a parameter instead of em
 
 - Add the necessary entries to `bicepconfig.json` for every Radius namespace used.
 - Create an application resource.
-- Declare shared PostgreSQL and blob storage resources as `existing` when the environment definition indicates they already exist.
-- Add a `Radius.Compute/containers` resource when the repository contains a deployable container.
+- Declare shared PostgreSQL and blob storage resources as `existing` when files like `env.bicep` or `shared-resources.bicep` indicate they are shared environment resources.
+- Prefer `Applications.Core/containers` for straightforward frontend or service containers.
+- Use `Radius.Compute/containers` only when the repository clearly needs recipe-based container behavior.
 - Add a `Radius.AI/agents` resource when the code expects an agent connection.
 - Connect the container to all required resources.
 - Use parameters for registry details and long or multi-line AI prompt text.
@@ -41,7 +44,6 @@ If the prompt value is long or multi-line, model it as a parameter instead of em
 
 ```bicep
 extension radius
-extension radiusCompute
 extension radiusData
 extension radiusStorage
 extension radiusAi
@@ -87,41 +89,32 @@ resource agent 'Radius.AI/agents@2025-08-01-preview' = {
     prompt: agentPrompt
     model: 'gpt-4.1-mini'
     enableObservability: true
-  }
-}
-
-resource container 'Radius.Compute/containers@2025-08-01-preview' = {
-  name: 'app'
-  properties: {
-    environment: environment
-    application: app.id
-    containers: {
-      app: {
-        image: '${registryHost}/${imageRepository}:${imageTag}'
-        ports: {
-          http: {
-            containerPort: 8080
-          }
-        }
-        readinessProbe: {
-          kind: 'httpGet'
-          path: '/readyz'
-          containerPort: 8080
-        }
-        livenessProbe: {
-          kind: 'httpGet'
-          path: '/healthz'
-          containerPort: 8080
-        }
-      }
-    }
     connections: {
       postgres: {
         source: postgres.id
       }
-      storage: {
+      blobstorage: {
         source: documents.id
       }
+    }
+  }
+}
+
+resource container 'Applications.Core/containers@2023-10-01-preview' = {
+  name: 'frontend-ui'
+  location: 'global'
+  properties: {
+    application: app.id
+    environment: environment
+    container: {
+      image: '${registryHost}/${imageRepository}:${imageTag}'
+      ports: {
+        http: {
+          containerPort: 3000
+        }
+      }
+    }
+    connections: {
       agent: {
         source: agent.id
       }
@@ -136,3 +129,14 @@ resource container 'Radius.Compute/containers@2025-08-01-preview' = {
 - If observability is disabled, write `enableObservability: false` after confirming with the user.
 - If the repository already pins an image repository name, keep it and ask only for the registry host.
 - If no AI usage is detected in the code, do not add the AI agent resource.
+
+## Customer-Agent Rules
+
+For repositories shaped like `Reshrahim/customer-agent`:
+
+- Read `radius/env.bicep` to infer the environment name and available recipes.
+- Read `radius/shared-resources.bicep` to infer the shared PostgreSQL and blob storage resource names to reference with `existing`.
+- Detect `src/web/Dockerfile` as the frontend workload that should become an `Applications.Core/containers` resource.
+- Detect `src/agent-runtime/app.py` as evidence that a `Radius.AI/agents` resource is required.
+- Infer agent dependencies from environment variables such as `CONNECTION_POSTGRES_*`, `CONNECTION_STORAGE_*`, `CONNECTION_MODEL_*`, and `CONNECTION_SEARCH_*`.
+- Do not create a separate top-level application container for the agent runtime when the AI agent recipe already deploys that runtime internally.

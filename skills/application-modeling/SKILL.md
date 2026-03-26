@@ -26,10 +26,12 @@ Use this flow when the user says things like `Create an application definition`,
 
 ### Discovery Order
 
-1. **Inspect the environment definition first.** If the workspace contains an environment definition or Radius environment config that already provides shared resources such as PostgreSQL or blob storage, model those resources as `existing` in `app.bicep` rather than creating new ones.
-2. **Inspect the repository for container artifacts.** Look for `Dockerfile`, `Containerfile`, OCI build configs, or application folders that clearly map to a container workload. If a container exists in the repository, add a `Radius.Compute/containers` resource.
-3. **Inspect the code for required connections.** Search for connection names, SDK usage, or environment variables that imply dependencies such as PostgreSQL, blob storage, or AI agent endpoints.
-4. **Inspect for AI-agent expectations.** If the code expects an agent endpoint or agent-style integration, add a `Radius.AI/agents` resource and connect the container to it.
+1. **Inspect environment-definition files first.** Treat files such as `env.bicep`, `environment.bicep`, `shared-resources.bicep`, and similar workspace Bicep files as the primary source of truth for shared resources and environment names.
+2. **Model shared resources from workspace files as `existing` in `app.bicep`.** If PostgreSQL, blob storage, or other shared resources are declared in files like `env.bicep` or `shared-resources.bicep`, reference them with `existing` in the generated app definition even if they might not be deployed yet.
+3. **Inspect the repository for container artifacts.** Look for `Dockerfile`, `Containerfile`, OCI build configs, or application folders that clearly map to a container workload.
+4. **Choose the container resource type deliberately.** Use `Applications.Core/containers` for straightforward single-container application workloads unless the repository explicitly needs recipe-based container features from `Radius.Compute/containers`.
+5. **Inspect the code for required connections.** Search for connection names, SDK usage, or environment variables that imply dependencies such as PostgreSQL, blob storage, or AI agent endpoints.
+6. **Inspect for AI-agent expectations.** If the code expects an agent endpoint or agent-style integration, add a `Radius.AI/agents` resource and connect the application container to it.
 
 ### Required Questions
 
@@ -44,7 +46,9 @@ Ask the user only when the value cannot be inferred safely:
 - **Always create `app.bicep`** when it does not already exist.
 - **Always ensure `bicepconfig.json` includes the needed Radius extensions** for every resource type used in the generated app.
 - **Use `existing` resources** for shared infrastructure already defined by the environment, especially PostgreSQL and blob storage when those are pre-provisioned.
+- **Treat workspace Bicep files as authoritative for shared resources** even when those resources are not deployed yet.
 - **Add a container resource** when the repository clearly contains a deployable application container.
+- **Prefer `Applications.Core/containers` for simple frontend or service containers** and only switch to `Radius.Compute/containers` when the repo clearly depends on recipe-based container behavior.
 - **Prompt for the OCI registry** instead of hardcoding one.
 - **Prompt for AI observability** instead of assuming `true` or `false`.
 - **If the AI prompt is long or multi-line, do not inline it in the resource.** Model it as `param agentPrompt string` and set `prompt: agentPrompt`.
@@ -57,12 +61,24 @@ The generated `app.bicep` should usually include:
 
 - An application resource.
 - Existing shared resources such as PostgreSQL and blob storage, when discovered from the environment definition.
-- A new `Radius.Compute/containers` resource for the application container.
+- A new application container resource, usually `Applications.Core/containers` for simple app workloads.
 - A new `Radius.AI/agents` resource when the code expects an AI agent.
 - Connections from the container to PostgreSQL, blob storage, and the AI agent.
 - Parameters for registry details and long free-text values.
 
 See [references/app-definition-flow.md](references/app-definition-flow.md) for the canonical example and decision rules.
+
+### Customer-Agent Target Profile
+
+When the target repository follows the `Reshrahim/customer-agent` structure, use these repo-specific rules:
+
+- **Environment file:** `radius/env.bicep` defines the environment and registered recipes.
+- **Shared resources file:** `radius/shared-resources.bicep` defines PostgreSQL and blob storage that should be referenced with `existing` in the generated `radius/app.bicep`.
+- **Frontend container:** `src/web/Dockerfile` indicates a user-facing container workload; generate an `Applications.Core/containers` resource such as `frontend-ui` for it.
+- **Agent runtime code:** `src/agent-runtime/app.py` indicates the repo expects an AI agent plus PostgreSQL and blob storage connections.
+- **Do not create a second app-level container for `src/agent-runtime/Dockerfile`** when the `Radius.AI/agents` recipe already encapsulates the agent runtime container.
+- **Default model:** use `gpt-4.1-mini` unless the user asks otherwise.
+- **Prompt handling:** when the user pastes a long or multi-line system prompt, always model it as a `param` rather than inlining it.
 
 ---
 
@@ -604,6 +620,7 @@ rad run app.bicep
 - **Always configure `bicepconfig.json`** — the Radius Bicep extension won't resolve without it.
 - **When scaffolding `app.bicep`, inspect before asking.** Infer shared resources and container workloads from the workspace whenever possible.
 - **When shared resources already exist in the environment, declare them with `existing`** instead of provisioning duplicates.
+- **When shared resources are declared in workspace files such as `env.bicep` or `shared-resources.bicep`, declare them with `existing`** in the generated `app.bicep` instead of duplicating them there.
 - **Always ask for the OCI registry host** when it cannot be inferred from the repository.
 - **Always ask before setting boolean AI options** such as `enableObservability` when there is no clear project default.
 - **Move long or multi-line prompt text into a parameter** instead of embedding it directly in the AI agent resource.
