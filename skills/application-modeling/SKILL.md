@@ -30,9 +30,10 @@ Use this flow when the user says things like `Create an application definition`,
 2. **Model shared resources from workspace files as `existing` in `app.bicep`.** If PostgreSQL, blob storage, or other shared resources are declared in files like `env.bicep` or `shared-resources.bicep`, reference them with `existing` in the generated app definition even if they might not be deployed yet.
 3. **Inspect the repository for container artifacts.** Look for `Dockerfile`, `Containerfile`, OCI build configs, or application folders that clearly map to a container workload.
 4. **Choose the container resource type deliberately.** Use `Applications.Core/containers` for straightforward single-container application workloads unless the repository explicitly needs recipe-based container features from `Radius.Compute/containers`.
-5. **Inspect the code for required connections.** Search for connection names, SDK usage, or environment variables that imply dependencies such as PostgreSQL, blob storage, or AI agent endpoints.
-6. **Inspect for AI-agent expectations.** If the code expects an agent endpoint or agent-style integration, add a `Radius.AI/agents` resource.
-7. **Wire connections by responsibility.** Connect the AI agent to the data and knowledge resources it needs. Connect the application container only to the AI agent unless the code clearly shows the container itself must talk to other resources directly.
+5. **Infer container ports from workload files, not base-image defaults.** Prefer explicit signals such as `EXPOSE` in `Dockerfile`, `listen` directives in `nginx.conf`, or app server startup arguments over assumptions like nginx using port 80.
+6. **Inspect the code for required connections.** Search for connection names, SDK usage, or environment variables that imply dependencies such as PostgreSQL, blob storage, or AI agent endpoints.
+7. **Inspect for AI-agent expectations.** If the code expects an agent endpoint or agent-style integration, add a `Radius.AI/agents` resource.
+8. **Wire connections by responsibility.** Connect the AI agent to the data and knowledge resources it needs. Connect the application container only to the AI agent unless the code clearly shows the container itself must talk to other resources directly.
 
 ### Required Questions
 
@@ -52,6 +53,7 @@ Ask the user only when the value cannot be inferred safely:
 - **Prefer `Applications.Core/containers` for simple frontend or service containers** and only switch to `Radius.Compute/containers` when the repo clearly depends on recipe-based container behavior.
 - **Do not connect the frontend container directly to shared data resources** when an AI agent resource already encapsulates those integrations.
 - **Infer the image repository name from the workload folder or existing repo conventions.** If the repo contains `src/web/Dockerfile`, default the image repository to `frontend-ui` rather than a generic repository name.
+- **Infer the container port from explicit workload configuration.** Prefer `EXPOSE`, web-server config, or application startup args over generic defaults from the base image.
 - **Prompt for the OCI registry** instead of hardcoding one.
 - **Prompt for AI observability** instead of assuming `true` or `false`.
 - **If the AI prompt is long or multi-line, do not inline it in the resource.** Model it as `param agentPrompt string` and set `prompt: agentPrompt`.
@@ -83,6 +85,7 @@ When the target repository follows the `Reshrahim/customer-agent` structure, use
 - **Agent connections:** the generated `Radius.AI/agents` resource must connect to `contoso-db` and `contoso-knowledge-base` so the runtime receives both database and knowledge-base/search inputs through the recipe.
 - **Frontend connections:** the generated `frontend-ui` container should connect only to the AI agent.
 - **Frontend image name:** the generated container image should use `frontend-ui` as the repository name unless the user overrides it.
+- **Frontend port:** infer the frontend port from `src/web/Dockerfile` and related config files. For customer-agent, use `3000` because the Dockerfile exposes `3000` and `src/web/nginx.conf` listens on `3000`.
 - **Do not create a second app-level container for `src/agent-runtime/Dockerfile`** when the `Radius.AI/agents` recipe already encapsulates the agent runtime container.
 - **Default model:** use `gpt-4.1-mini` unless the user asks otherwise.
 - **Prompt handling:** when the user pastes a long or multi-line system prompt, always model it as a `param` rather than inlining it.
