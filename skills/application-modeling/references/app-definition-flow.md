@@ -37,7 +37,9 @@ If the prompt value is long or multi-line, model it as a parameter instead of em
 - Prefer `Applications.Core/containers` for straightforward frontend or service containers.
 - Use `Radius.Compute/containers` only when the repository clearly needs recipe-based container behavior.
 - Add a `Radius.AI/agents` resource when the code expects an agent connection.
-- Connect the container to all required resources.
+- Connect the AI agent to the shared data and knowledge resources it needs.
+- Connect the app container only to the AI agent unless the code clearly shows the container talks to other resources directly.
+- Infer the image repository name from the workload path or repo conventions instead of defaulting to a generic name.
 - Use parameters for registry details and long or multi-line AI prompt text.
 
 ## Canonical Example
@@ -58,7 +60,7 @@ param applicationName string = 'myapp'
 param registryHost string
 
 @description('Container image repository name.')
-param imageRepository string = 'myapp'
+param imageRepository string = 'frontend-ui'
 
 @description('Container image tag.')
 param imageTag string = 'latest'
@@ -82,7 +84,7 @@ resource documents 'Radius.Storage/blobStorages@2025-08-01-preview' existing = {
 }
 
 resource agent 'Radius.AI/agents@2025-08-01-preview' = {
-  name: 'assistant'
+  name: 'support-agent'
   properties: {
     environment: environment
     application: app.id
@@ -128,6 +130,7 @@ resource container 'Applications.Core/containers@2023-10-01-preview' = {
 - Replace the `existing` resource names with the names found in the environment definition.
 - If observability is disabled, write `enableObservability: false` after confirming with the user.
 - If the repository already pins an image repository name, keep it and ask only for the registry host.
+- If the workload comes from `src/web/Dockerfile`, prefer `frontend-ui` as the image repository name unless the repo shows a different published image name.
 - If no AI usage is detected in the code, do not add the AI agent resource.
 
 ## Customer-Agent Rules
@@ -139,4 +142,7 @@ For repositories shaped like `Reshrahim/customer-agent`:
 - Detect `src/web/Dockerfile` as the frontend workload that should become an `Applications.Core/containers` resource.
 - Detect `src/agent-runtime/app.py` as evidence that a `Radius.AI/agents` resource is required.
 - Infer agent dependencies from environment variables such as `CONNECTION_POSTGRES_*`, `CONNECTION_STORAGE_*`, `CONNECTION_MODEL_*`, and `CONNECTION_SEARCH_*`.
+- Connect the `Radius.AI/agents` resource to the shared PostgreSQL and blob storage resources.
+- Connect the `Applications.Core/containers` frontend only to the agent resource.
+- Use `${registryHost}/frontend-ui:${imageTag}` for the frontend image unless the repo clearly indicates a different image repository name.
 - Do not create a separate top-level application container for the agent runtime when the AI agent recipe already deploys that runtime internally.

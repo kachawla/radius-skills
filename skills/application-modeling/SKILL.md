@@ -31,7 +31,8 @@ Use this flow when the user says things like `Create an application definition`,
 3. **Inspect the repository for container artifacts.** Look for `Dockerfile`, `Containerfile`, OCI build configs, or application folders that clearly map to a container workload.
 4. **Choose the container resource type deliberately.** Use `Applications.Core/containers` for straightforward single-container application workloads unless the repository explicitly needs recipe-based container features from `Radius.Compute/containers`.
 5. **Inspect the code for required connections.** Search for connection names, SDK usage, or environment variables that imply dependencies such as PostgreSQL, blob storage, or AI agent endpoints.
-6. **Inspect for AI-agent expectations.** If the code expects an agent endpoint or agent-style integration, add a `Radius.AI/agents` resource and connect the application container to it.
+6. **Inspect for AI-agent expectations.** If the code expects an agent endpoint or agent-style integration, add a `Radius.AI/agents` resource.
+7. **Wire connections by responsibility.** Connect the AI agent to the data and knowledge resources it needs. Connect the application container only to the AI agent unless the code clearly shows the container itself must talk to other resources directly.
 
 ### Required Questions
 
@@ -49,6 +50,8 @@ Ask the user only when the value cannot be inferred safely:
 - **Treat workspace Bicep files as authoritative for shared resources** even when those resources are not deployed yet.
 - **Add a container resource** when the repository clearly contains a deployable application container.
 - **Prefer `Applications.Core/containers` for simple frontend or service containers** and only switch to `Radius.Compute/containers` when the repo clearly depends on recipe-based container behavior.
+- **Do not connect the frontend container directly to shared data resources** when an AI agent resource already encapsulates those integrations.
+- **Infer the image repository name from the workload folder or existing repo conventions.** If the repo contains `src/web/Dockerfile`, default the image repository to `frontend-ui` rather than a generic repository name.
 - **Prompt for the OCI registry** instead of hardcoding one.
 - **Prompt for AI observability** instead of assuming `true` or `false`.
 - **If the AI prompt is long or multi-line, do not inline it in the resource.** Model it as `param agentPrompt string` and set `prompt: agentPrompt`.
@@ -63,7 +66,8 @@ The generated `app.bicep` should usually include:
 - Existing shared resources such as PostgreSQL and blob storage, when discovered from the environment definition.
 - A new application container resource, usually `Applications.Core/containers` for simple app workloads.
 - A new `Radius.AI/agents` resource when the code expects an AI agent.
-- Connections from the container to PostgreSQL, blob storage, and the AI agent.
+- Connections from the AI agent to PostgreSQL and blob storage when those resources are required.
+- A connection from the application container to the AI agent when the container is only a frontend or thin client.
 - Parameters for registry details and long free-text values.
 
 See [references/app-definition-flow.md](references/app-definition-flow.md) for the canonical example and decision rules.
@@ -76,6 +80,9 @@ When the target repository follows the `Reshrahim/customer-agent` structure, use
 - **Shared resources file:** `radius/shared-resources.bicep` defines PostgreSQL and blob storage that should be referenced with `existing` in the generated `radius/app.bicep`.
 - **Frontend container:** `src/web/Dockerfile` indicates a user-facing container workload; generate an `Applications.Core/containers` resource such as `frontend-ui` for it.
 - **Agent runtime code:** `src/agent-runtime/app.py` indicates the repo expects an AI agent plus PostgreSQL and blob storage connections.
+- **Agent connections:** the generated `Radius.AI/agents` resource must connect to `contoso-db` and `contoso-knowledge-base` so the runtime receives both database and knowledge-base/search inputs through the recipe.
+- **Frontend connections:** the generated `frontend-ui` container should connect only to the AI agent.
+- **Frontend image name:** the generated container image should use `frontend-ui` as the repository name unless the user overrides it.
 - **Do not create a second app-level container for `src/agent-runtime/Dockerfile`** when the `Radius.AI/agents` recipe already encapsulates the agent runtime container.
 - **Default model:** use `gpt-4.1-mini` unless the user asks otherwise.
 - **Prompt handling:** when the user pastes a long or multi-line system prompt, always model it as a `param` rather than inlining it.
@@ -624,6 +631,7 @@ rad run app.bicep
 - **Always ask for the OCI registry host** when it cannot be inferred from the repository.
 - **Always ask before setting boolean AI options** such as `enableObservability` when there is no clear project default.
 - **Move long or multi-line prompt text into a parameter** instead of embedding it directly in the AI agent resource.
+- **When an app uses an AI agent plus shared data resources, prefer agent-to-resource connections over container-to-resource connections.**
 - **Never register recipes from local file paths** — publish to an OCI registry first.
 - **Use `host.docker.internal`** instead of `localhost` for in-cluster access to host services.
 - **Use `--plain-http`** when working with insecure (HTTP) registries.
